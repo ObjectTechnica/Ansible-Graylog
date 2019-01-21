@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  author: Adam A. Valenzuela
+  description: A very efficient approach to deploying a single instance of Graylog-Server.
+  company: Object-Technica.io
+  license: MIT
+  min_ansible_version: 2.3
+  platforms:
+  - name: EL
+    versions:
+    - 7
+  galaxy_tags:
+  - logs
+  - monitoring
+  - IDS
+  - Cloudtrail
+  - Flowlogs
+  - ELBAccessLogs
+dependencies: []

@@ -1,0 +1,217 @@
+---
+# tasks file for Graylog-Server
+- name: Graylog-Server - Deploy hosts file template
+  template:
+    src: 'hosts.j2'
+    dest: '/etc/hosts'
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Graylog-Server - Setting hostname for runtime
+  hostname:
+    name: graylog.localdomain
+
+- name: Graylog-Server - Deploy mongodb-org-3.2 repo file
+  copy:
+    src: mongo.repo
+    dest: /etc/yum.repos.d/mongo.repo
+    owner: root
+    group: root
+    mode: 0644
+    serole: object_r
+    setype: etc_t
+    seuser: unconfined_u
+    force: yes
+
+- name: Graylog-Server - Deploy elasticsearch-5.x repo file
+  copy:
+    src: elasticsearch.repo
+    dest: /etc/yum.repos.d/elasticsearch.repo
+    owner: root
+    group: root
+    mode: 0644
+    serole: object_r
+    setype: etc_t
+    seuser: unconfined_u
+    force: yes
+
+- name: Graylog-Server - Deploy Graylog-Server-2.3.x repo files
+  copy:
+    src: graylog.repo
+    dest: /etc/yum.repos.d/graylog.repo
+    owner: root
+    group: root
+    mode: 0644
+    serole: object_r
+    setype: etc_t
+    seuser: unconfined_u
+    force: yes
+
+- name: Graylog-Server - Deploy Graylog-Server-2.3.x RPM-GPG-Key
+  copy:
+    src: RPM-GPG-KEY-graylog
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-graylog
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Graylog-Server - Install EPEL
+  yum: name={{item}} state=present
+  with_items:
+      - epel-release
+
+- name: Graylog-Server - Install pre-flight packages
+  yum: name={{item}} state=present
+  with_items:
+      - java-1.8.0-openjdk-headless.x86_64
+      - pwgen
+      - vim
+      - policycoreutils-python
+      - firewalld
+
+- name: Graylog-Server - Install MongoDB Server
+  yum: name={{item}} state=present
+  with_items:
+      - mongodb-org
+
+- name: Graylog-Server - Daemon-reload to pick up config changes and restart MongoDB
+  systemd:
+    daemon_reload: yes
+    enabled: yes
+    state: restarted
+    name: mongod
+
+- name: Graylog-Server - Install ElasticSearch GPG keys
+  rpm_key: state=present key=https://packages.elastic.co/{{ item }}
+  with_items:
+      - GPG-KEY-elasticsearch
+
+- name: Graylog-Server - Install elasticsearch
+  yum: name={{item}} state=present
+  with_items:
+      -  elasticsearch
+
+- name: Graylog-Server - Updating the port config in file
+  lineinfile:
+   destfile: /etc/elasticsearch/elasticsearch.yml
+   regexp: 'cluster.name:'
+   line: 'cluster.name: graylog'
+
+- name: Graylog-Server - Updating the memory_lock config in file
+  lineinfile:
+   destfile: /etc/elasticsearch/elasticsearch.yml
+   regexp: 'bootstrap.memory_lock:'
+   line: 'bootstrap.memory_lock: true'
+
+- name: Graylog-Server - Updating the MAX_OPEN_FILES config in file
+  lineinfile:
+   destfile: /etc/sysconfig/elasticsearch
+   regexp: 'MAX_OPEN_FILES='
+   line: 'MAX_OPEN_FILES=65535'
+
+- name: Graylog-Server - Updating the LimitMEMLOCK config in file
+  lineinfile:
+   destfile: /usr/lib/systemd/system/elasticsearch.service
+   regexp: 'LimitMEMLOCK='
+   line: 'LimitMEMLOCK=infinity'
+
+- name: Graylog-Server - Restart Elasticsearch, also issue daemon-reload to pick up config changes
+  systemd:
+    daemon_reload: yes
+    enabled: yes
+    state: restarted
+    name: elasticsearch
+
+- name: Graylog-Server - Install graylog Server
+  yum: name={{item}} state=present
+  with_items:
+      - graylog-server
+
+- name: Graylog-Server - Deploy Graylog's main Server.conf
+  template:
+    src: graylog.server.conf.j2
+    dest: /etc/graylog/server/server.conf
+    owner: root
+    group: root
+    mode:  0644
+
+- name: Graylog-Server - Deploy sysconfig graylog-server template
+  template:
+    src: 'graylog.j2'
+    dest: '/etc/sysconfig/graylog-server'
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Graylog-Server - Setting up SSL Key and Cert 1 of 3
+  command: /bin/openssl req -x509 -days 3650 -batch -nodes -newkey rsa:4096 -keyout /etc/pki/tls/graylog-key.key -out /etc/pki/tls/graylog-cert.crt -subj /CN=graylog.localdomain
+
+- name: Graylog-Server - Setting up SSL Key and Cert 2 of 3
+  command: /bin/openssl req -x509 -days 3650 -batch -nodes -newkey rsa:4096 -keyout /etc/pki/tls/graylog-key.key -out /etc/pki/tls/graylog-cert.crt
+
+- name: Graylog-Server - Importing crt into java keystore 3 of 3
+  command: /bin/keytool -import -trustcacerts -keystore /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.141-1.b16.el7_3.x86_64/jre/lib/security/cacerts -storepass changeit -noprompt -alias graylog-cert -file /etc/pki/tls/graylog-cert.crt
+
+- name: Graylog-Server - Daemon-reload to pick up config changes and restart Graylog-Server
+  systemd:
+    daemon_reload: yes
+    enabled: yes
+    state: restarted
+    name: graylog-server
+
+- name: Graylog-Server - Opening ports for Console Access tcp/22
+  firewalld:
+    port: 22/tcp
+    permanent: true
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for Graylog-Server Access tcp/9000
+  firewalld:
+    port: 9000/tcp
+    permanent: true
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for ElasticSearch Access tcp/9200
+  firewalld:
+    port: 9200/tcp
+    permanent: true
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for ElasticSearch Access tcp/9300
+  firewalld:
+    port: 9300/tcp
+    permanent: true
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for Graylog-Server API Access tcp/12900
+  firewalld:
+    port: 12900/tcp
+    permanent: true
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for MongoDB Access tcp/27017
+  firewalld:
+    port: 27017/tcp
+    permanent: true
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for Access tcp/514
+  firewalld:
+    port: 514/tcp
+    permanent: yes
+    state: enabled
+    zone: public
+
+- name: Graylog-Server - Opening ports for Access udp/514
+  firewalld:
+    port: 514/udp
+    permanent: yes
+    state: enabled
+    zone: public

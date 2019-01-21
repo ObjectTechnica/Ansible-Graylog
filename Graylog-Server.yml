@@ -1,0 +1,12 @@
+---
+- hosts: graylog
+  gather_facts: true
+  name: Provision a single instance of Graylog server
+  become: yes
+  user: centos
+
+  vars_files:
+    - vars/main.yml
+
+  roles:
+    - { role: Graylog-Server, tags: Graylog-Server }
