@@ -1,0 +1,42 @@
+---
+graylog_version: '2.3.1'
+graylog_address: "{{ ansible_default_ipv4.address }}"
+graylog_enable_tls: true
+graylog_tls_cert: /etc/pki/tls/graylog-cert.pem
+graylog_pkcs11: /etc/pki/tls/graylog-key.pem
+graylog_tls_keypassd: secret
+# You MUST specify a hash password for the root user (which you only need to initially set up the
+# system and in case you lose connectivity to your authentication backend)
+# echo -n yourpassword | sha256sum
+graylog_root:
+  username: admin
+  email: root@localhost.com
+  password_sha2: '6c96784833b51bfc17d224d88628c5effc236da3c57423d3d97874504059a204'
+
+graylog_rotation_strategy: count
+graylog_max_docs_per_index: 20000000
+graylog_max_number_of_indices: 20
+graylog_retention_strategy: delete
+graylog_elasticsearch_shards: 4
+graylog_elasticsearch_replicas: 0
+graylog_elasticsearch_index_prefix: graylog
+# You MUST set a secret to secure/pepper the stored user passwords here. Use at least 64 characters.
+# Generate one by using for example: pwgen -N 1 -s 96
+graylog_password_salt: "UkhBn6sffixvTIHru8ODnA3lGdQefm2cULUccVY0NcgmWqn9NKk7hadO5h26TP53DDv7qt24XVORqccRZyjxEo3zFpDGehms"
+graylog_cluster_name: 'cluster.name: graylog'
+mongodb_locaiton:  mongodb://localhost/graylog
+es_max_open_files: MAX_OPEN_FILES=65535
+es_max_locked_memory: MAX_LOCKED_MEMORY=unlimited
+es_boot_lock: 'bootstrap.memory_lock: true'
+#graylog_transport_email_enabled:
+#graylog_transport_email_hostname:
+#graylog_transport_email_port:
+#graylog_transport_email_use_auth:
+#graylog_transport_email_use_tls:
+#graylog_transport_email_use_ssl:
+#graylog_transport_email_auth_username:
+#graylog_transport_email_auth_password:
+#graylog_transport_email_subject_prefix:
+#graylog_transport_email_from_email:
+#graylog_transport_email_web_interface_url:
+gr_java_heap: '-Xms2g -Xmx2g'
